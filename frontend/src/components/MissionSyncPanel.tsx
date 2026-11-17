@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Radio, ShieldCheck, ShieldX, Bug } from "lucide-react";
+import { Radio, ShieldCheck, ShieldX, Loader2 } from "lucide-react";
 import { SyncReport, SyncReportVerifyResponse } from "@/types/astrohealth";
 
 interface MissionSyncPanelProps {
@@ -21,6 +21,16 @@ export default function MissionSyncPanel({
     Record<string, SyncReportVerifyResponse>
   >({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      await onGenerateReport();
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleVerify = async (reportId: string) => {
     setBusyId(reportId);
@@ -43,97 +53,100 @@ export default function MissionSyncPanel({
     }
   };
 
+  const latestReport = reports[0];
+  const latestVerify = latestReport ? verifications[latestReport.id] : null;
+  const isVerified = latestVerify?.verified === true;
+  const isTampered = latestVerify?.verified === false;
+
   return (
-    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-cyan-400" />
-          <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-            Asynchronous Earth Mission Control Sync (HMAC-SHA256)
-          </h3>
-        </div>
-        <button
-          type="button"
-          onClick={onGenerateReport}
-          className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold"
-        >
-          Generate Signed Digest
-        </button>
+    <div className="glass-panel rounded-xl p-4 flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Radio className="w-3.5 h-3.5 text-cyan-400" />
+        <h3 className="text-xs font-bold uppercase tracking-widest text-white font-grotesk">
+          Earth Mission Sync
+        </h3>
       </div>
 
-      {reports.length === 0 ? (
-        <p className="text-xs text-slate-400 p-3 bg-slate-950 rounded-lg border border-slate-800">
-          No asynchronous Mission Control digests queued yet.
-        </p>
-      ) : (
-        <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-          {reports.map((rep) => {
-            const v = verifications[rep.id];
-            return (
-              <div
-                key={rep.id}
-                className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-2"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-white">
-                    {rep.summary.astronaut_name} • Status:{" "}
-                    {rep.summary.overall_status || "NOMINAL"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={busyId === rep.id}
-                      onClick={() => handleVerify(rep.id)}
-                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-mono text-[11px]"
-                    >
-                      Verify HMAC
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyId === rep.id}
-                      onClick={() => handleTamper(rep.id)}
-                      className="px-2 py-1 rounded bg-rose-950 hover:bg-rose-900 border border-rose-700 text-rose-200 font-mono text-[11px] flex items-center gap-1"
-                      title="Dev-only demo: mutates summary_json without updating HMAC"
-                    >
-                      <Bug className="w-3 h-3" />
-                      Tamper Demo
-                    </button>
-                  </div>
-                </div>
+      {/* Action buttons */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={generating}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/[0.08] text-xs font-mono text-slate-200 hover:text-white transition-colors disabled:opacity-50"
+        >
+          {generating ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Radio className="w-3 h-3" />
+          )}
+          Generate Signed Digest
+        </button>
 
-                <div className="font-mono text-[10px] text-slate-400 break-all">
-                  HMAC-SHA256: {rep.integrity_hmac}
-                </div>
+        {latestReport && (
+          <button
+            type="button"
+            onClick={() => handleVerify(latestReport.id)}
+            disabled={busyId === latestReport.id}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/[0.08] text-xs font-mono text-slate-200 hover:text-white transition-colors disabled:opacity-50"
+          >
+            {busyId === latestReport.id ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <ShieldCheck className="w-3 h-3" />
+            )}
+            Verify HMAC
+          </button>
+        )}
+      </div>
 
-                {v && (
-                  <div
-                    className={`p-2 rounded border flex items-center gap-2 font-mono text-[11px] ${
-                      v.verified
-                        ? "bg-emerald-950/60 border-emerald-600 text-emerald-200"
-                        : "bg-red-950/70 border-red-600 text-red-200"
-                    }`}
-                  >
-                    {v.verified ? (
-                      <>
-                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>
-                          INTEGRITY VERIFIED (HMAC-SHA256 match confirmed)
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <ShieldX className="w-4 h-4 text-red-400 shrink-0" />
-                        <span>
-                          TAMPER DETECTED! Stored HMAC does not match canonical
-                          payload.
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {/* Integrity badge */}
+      <div className="flex justify-center pt-1">
+        {!latestVerify ? (
+          /* Idle ring */
+          <div className="w-16 h-16 rounded-full border-2 border-slate-700 flex flex-col items-center justify-center gap-0.5">
+            <ShieldCheck className="w-5 h-5 text-slate-700" />
+            <span className="text-[8px] font-mono text-slate-700 text-center leading-tight">
+              PENDING
+            </span>
+          </div>
+        ) : isVerified ? (
+          <div className="w-16 h-16 rounded-full border-2 border-emerald-500 bg-emerald-950/40 flex flex-col items-center justify-center gap-0.5 shadow-[0_0_16px_rgba(16,185,129,0.3)]">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <span className="text-[8px] font-mono text-emerald-300 text-center leading-tight">
+              INTEGRITY<br />VERIFIED
+            </span>
+          </div>
+        ) : isTampered ? (
+          <div className="w-16 h-16 rounded-full border-2 border-red-500 bg-red-950/40 flex flex-col items-center justify-center gap-0.5 shadow-[0_0_16px_rgba(239,68,68,0.35)] animate-pulse-slow">
+            <ShieldX className="w-5 h-5 text-red-400" />
+            <span className="text-[8px] font-mono text-red-300 text-center leading-tight">
+              TAMPER<br />DETECTED
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Report digest preview */}
+      {latestReport && (
+        <div className="mt-auto pt-2 border-t border-white/[0.05]">
+          <p className="text-[9px] font-mono text-slate-600 truncate">
+            ID: {latestReport.id.slice(0, 16)}…
+          </p>
+          {latestReport.integrity_hmac && (
+            <p className="text-[9px] font-mono text-slate-700 truncate">
+              HMAC: {latestReport.integrity_hmac.slice(0, 20)}…
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => handleTamper(latestReport.id)}
+            disabled={busyId !== null}
+            className="mt-1.5 text-[9px] font-mono text-red-700 hover:text-red-500 transition-colors disabled:opacity-30"
+          >
+            [tamper-demo]
+          </button>
         </div>
       )}
     </div>

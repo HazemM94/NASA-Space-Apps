@@ -38,6 +38,16 @@ export interface UserProfile {
   baseline_dia_bp: number;
 }
 
+export interface CreateAstronautPayload {
+  full_name: string;
+  email?: string;
+  role?: RoleType;
+  baseline_hr_bpm?: number;
+  baseline_spo2_pct?: number;
+  baseline_sys_bp?: number;
+  baseline_dia_bp?: number;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;

@@ -37,6 +37,21 @@ class LoginResponse(BaseModel):
     user: UserProfileResponse
 
 
+class CreateUserRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=100)
+    email: Optional[EmailStr] = None
+    role: RoleType = "ASTRONAUT"
+    password: Optional[str] = "MarsMission2026!"
+    baseline_hr_bpm: int = Field(default=64, ge=30, le=220)
+    baseline_spo2_pct: float = Field(default=98.5, ge=70.0, le=100.0)
+    baseline_sys_bp: int = Field(default=118, ge=60, le=250)
+    baseline_dia_bp: int = Field(default=75, ge=40, le=150)
+
+
+class SwitchUserRequest(BaseModel):
+    user_id: str
+
+
 class TelemetryCreateRequest(BaseModel):
     target_user_id: Optional[str] = None
     heart_rate_bpm: int = Field(..., ge=20, le=260)

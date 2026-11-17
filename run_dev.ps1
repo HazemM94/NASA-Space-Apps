@@ -4,6 +4,8 @@ Write-Host "=== AstroHealth AI V2.2: Starting Local Mission Control Stack ===" -
 
 # 1. Backend Setup & Seed
 Push-Location backend
+$backendDir = (Resolve-Path ".").Path
+
 if (-not (Test-Path ".venv")) {
     python -m venv .venv
 }
@@ -18,11 +20,32 @@ Write-Host "Seeding SQLite DB and NASA HRP Knowledge Base Index..." -ForegroundC
 .\.venv\Scripts\python.exe -m scripts.seed_db_and_kb --reset --overwrite-kb --offline-embeddings
 
 Write-Host "Starting FastAPI Backend on http://localhost:8000 (workers=1)..." -ForegroundColor Green
-$backendProc = Start-Process -FilePath ".\.venv\Scripts\uvicorn.exe" -ArgumentList "app.main:app --host 0.0.0.0 --port 8000 --workers 1" -PassThru
+$backendProc = Start-Process -FilePath ".\.venv\Scripts\uvicorn.exe" -ArgumentList "app.main:app --host 0.0.0.0 --port 8000 --workers 1" -WorkingDirectory $backendDir -PassThru
 Pop-Location
+
+# Wait for backend to be ready
+$maxRetries = 15
+$ready = $false
+while (-not $ready -and $maxRetries -gt 0) {
+    try {
+        $resp = Invoke-RestMethod -Uri "http://localhost:8000/api/v1/health" -Method Get -TimeoutSec 2
+        if ($resp.status -eq "ok") { $ready = $true }
+    } catch {
+        Start-Sleep -Milliseconds 800
+        $maxRetries--
+    }
+}
+if ($ready) {
+    Write-Host "[OK] Backend is live at http://localhost:8000/api/v1/health" -ForegroundColor Green
+} else {
+    Write-Host "[WARN] Backend health check timed out; proceeding anyway..." -ForegroundColor Yellow
+}
 
 # 2. Frontend Setup & Start
 Push-Location frontend
+if (-not (Test-Path ".env.local")) {
+    Set-Content -Path ".env.local" -Value "NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`nNEXT_PUBLIC_WS_URL=ws://localhost:8000/ws/telemetry`nNEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1`nNEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000/ws/telemetry"
+}
 if (-not (Test-Path "node_modules")) {
     npm install
 }

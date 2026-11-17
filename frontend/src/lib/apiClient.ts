@@ -1,5 +1,6 @@
 import {
   ConsultationResponse,
+  CreateAstronautPayload,
   DiagnosticConsultation,
   HealthCheckResponse,
   LatestTelemetrySummary,
@@ -9,6 +10,7 @@ import {
   SyncReportVerifyResponse,
   TraumaProtocol,
   TreatmentTask,
+  UserProfile,
   BodyRegionType,
 } from "@/types/astrohealth";
 
@@ -283,4 +285,21 @@ export const apiClient = {
       `/reports/${reportId}/tamper-demo`,
       { method: "POST" }
     ),
+
+  getMe: () => request<UserProfile>("/auth/me", { method: "GET" }),
+
+  listCrew: () =>
+    request<UserProfile[]>("/auth/users", { method: "GET" }, false),
+
+  createAstronaut: (payload: CreateAstronautPayload) =>
+    request<LoginResponse>("/auth/users", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }, false),
+
+  switchUser: (userId: string) =>
+    request<LoginResponse>("/auth/switch", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }, false),
 };

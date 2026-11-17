@@ -11,3 +11,9 @@ __pycache__/
 .env
 .env.local
 scratch/
+
+.agent/
+.claude/
+backend/.venv/
+backend/__pycache__/
+frontend/.next/

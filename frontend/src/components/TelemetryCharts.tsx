@@ -3,168 +3,141 @@
 import React from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
 } from "recharts";
-import { Activity, Shield, Moon, HeartPulse } from "lucide-react";
+import { HeartPulse, Moon, Shield } from "lucide-react";
 import { TelemetryReading } from "@/types/astrohealth";
 
 interface TelemetryChartsProps {
   readings: TelemetryReading[];
 }
 
-export default function TelemetryCharts({ readings }: TelemetryChartsProps) {
-  const latest = readings[readings.length - 1];
+const TOOLTIP_STYLE = {
+  backgroundColor: "#0a1628",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "8px",
+  fontSize: "11px",
+  color: "#e2e8f0",
+  fontFamily: "var(--font-mono)",
+};
 
+export default function TelemetryCharts({ readings }: TelemetryChartsProps) {
   const chartData = readings.map((r) => ({
     time: new Date(r.recorded_at).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
     }),
     hr: r.heart_rate_bpm,
     sys: r.systolic_bp_mmhg,
-    dia: r.diastolic_bp_mmhg,
-    spo2: r.spo2_pct,
-    rad: r.radiation_msv,
     sleep: r.sleep_score,
     fatigue: Math.round(r.eeg_fatigue_index * 100),
+    rad: parseFloat(r.radiation_msv.toFixed(2)),
   }));
 
+  const charts = [
+    {
+      title: "Heart Rate and BP",
+      icon: <HeartPulse className="w-3.5 h-3.5 text-rose-400" />,
+      lines: [
+        { key: "hr",  color: "#ef4444", name: "HR (bpm)", gradient: "hrGrad"  },
+        { key: "sys", color: "#06b6d4", name: "Sys BP",   gradient: "sysGrad" },
+      ],
+      domain: [40, 200] as [number, number],
+    },
+    {
+      title: "Sleep and Fatigue",
+      icon: <Moon className="w-3.5 h-3.5 text-indigo-400" />,
+      lines: [
+        { key: "sleep",   color: "#818cf8", name: "Sleep Score", gradient: "sleepGrad"   },
+        { key: "fatigue", color: "#f59e0b", name: "Fatigue %",   gradient: "fatigueGrad" },
+      ],
+      domain: [0, 100] as [number, number],
+    },
+    {
+      title: "Radiation",
+      icon: <Shield className="w-3.5 h-3.5 text-amber-400" />,
+      lines: [
+        { key: "rad", color: "#f59e0b", name: "mSv/d", gradient: "radGrad" },
+      ],
+      domain: [0, 4] as [number, number],
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Heart Rate & BP</span>
-            <HeartPulse className="w-4 h-4 text-rose-400" />
+    <div className="grid grid-cols-3 gap-3">
+      {charts.map((chart) => (
+        <div
+          key={chart.title}
+          className="glass-panel rounded-xl p-3 flex flex-col gap-2"
+        >
+          {/* Chart header */}
+          <div className="flex items-center gap-1.5">
+            {chart.icon}
+            <h4 className="text-[11px] font-semibold text-slate-300 font-grotesk">
+              {chart.title}
+            </h4>
           </div>
-          <div className="mt-1 text-lg font-bold text-white font-mono">
-            {latest ? `${latest.heart_rate_bpm} BPM` : "--"}{" "}
-            <span className="text-xs text-slate-400">
-              ({latest ? `${latest.systolic_bp_mmhg}/${latest.diastolic_bp_mmhg}` : "--"})
-            </span>
-          </div>
-        </div>
 
-        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>SpO2 & Core Temp</span>
-            <Activity className="w-4 h-4 text-cyan-400" />
+          {/* Legend */}
+          <div className="flex flex-wrap gap-2">
+            {chart.lines.map((l) => (
+              <div key={l.key} className="flex items-center gap-1">
+                <span
+                  className="w-3 h-0.5 rounded"
+                  style={{ backgroundColor: l.color }}
+                />
+                <span className="text-[9px] font-mono text-slate-500">
+                  {l.name}
+                </span>
+              </div>
+            ))}
           </div>
-          <div className="mt-1 text-lg font-bold text-white font-mono">
-            {latest ? `${latest.spo2_pct.toFixed(1)}%` : "--"}{" "}
-            <span className="text-xs text-slate-400">
-              ({latest ? `${latest.core_temp_c.toFixed(1)}°C` : "--"})
-            </span>
-          </div>
-        </div>
 
-        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Shielded Habitat Dosimeter</span>
-            <Shield className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="mt-1 text-lg font-bold text-white font-mono">
-            {latest ? `${latest.radiation_msv.toFixed(2)} mSv/d` : "--"}
+          {/* Area chart */}
+          <div className="h-20">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 2, right: 2, left: -32, bottom: 0 }}>
+                <defs>
+                  {chart.lines.map((l) => (
+                    <linearGradient
+                      key={l.gradient}
+                      id={l.gradient}
+                      x1="0" y1="0" x2="0" y2="1"
+                    >
+                      <stop offset="5%"  stopColor={l.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={l.color} stopOpacity={0.0} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <XAxis dataKey="time" hide />
+                <YAxis domain={chart.domain} stroke="transparent" tick={{ fill: "#475569", fontSize: 9 }} />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  itemStyle={{ color: "#94a3b8" }}
+                  labelStyle={{ color: "#64748b", fontSize: 9 }}
+                />
+                {chart.lines.map((l) => (
+                  <Area
+                    key={l.key}
+                    type="monotone"
+                    dataKey={l.key}
+                    stroke={l.color}
+                    strokeWidth={1.5}
+                    fill={`url(#${l.gradient})`}
+                    dot={false}
+                    isAnimationActive={false}
+                    name={l.name}
+                  />
+                ))}
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
-
-        <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>Sleep & fNIRS Fatigue</span>
-            <Moon className="w-4 h-4 text-indigo-400" />
-          </div>
-          <div className="mt-1 text-lg font-bold text-white font-mono">
-            {latest ? `Sleep ${latest.sleep_score}` : "--"}{" "}
-            <span className="text-xs text-slate-400">
-              (Fatigue {latest ? `${Math.round(latest.eeg_fatigue_index * 100)}%` : "--"})
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 h-56">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Cardiovascular Stream (HR & Systolic BP)
-          </h4>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="time" hide />
-              <YAxis domain={[40, 200]} stroke="#64748b" fontSize={11} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  borderColor: "#334155",
-                  fontSize: "12px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="hr"
-                stroke="#f43f5e"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="Heart Rate (BPM)"
-              />
-              <Line
-                type="monotone"
-                dataKey="sys"
-                stroke="#38bdf8"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="Systolic BP (mmHg)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 h-56">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            Circadian Sleep Score & Cognitive Fatigue (%)
-          </h4>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="time" hide />
-              <YAxis domain={[0, 100]} stroke="#64748b" fontSize={11} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  borderColor: "#334155",
-                  fontSize: "12px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="sleep"
-                stroke="#818cf8"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="Actiwatch Sleep Score"
-              />
-              <Line
-                type="monotone"
-                dataKey="fatigue"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-                name="fNIRS Fatigue (%)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

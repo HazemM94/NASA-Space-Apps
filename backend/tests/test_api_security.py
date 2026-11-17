@@ -195,3 +195,47 @@ async def test_hmac_sync_and_tamper_detection(
     )
     assert verify_after_tamper.status_code == 200
     assert verify_after_tamper.json()["verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_crew_manifest_and_switching(async_client: AsyncClient, astronaut_token: str):
+    headers = {"Authorization": f"Bearer {astronaut_token}"}
+
+    # 1. List crew members
+    list_res = await async_client.get("/api/v1/auth/users", headers=headers)
+    assert list_res.status_code == 200
+    crew = list_res.json()
+    assert len(crew) >= 3
+    names = [c["full_name"] for c in crew]
+    assert any("Watney" in n for n in names)
+    assert any("Lewis" in n for n in names)
+    assert any("Cruz" in n for n in names)
+
+    # 2. Add new astronaut
+    create_res = await async_client.post(
+        "/api/v1/auth/users",
+        json={
+            "full_name": "Major Tom (Test)",
+            "role": "ASTRONAUT",
+            "baseline_hr_bpm": 60,
+            "baseline_spo2_pct": 99.0,
+            "baseline_sys_bp": 115,
+            "baseline_dia_bp": 72,
+        },
+    )
+    assert create_res.status_code == 201
+    created_data = create_res.json()
+    assert "access_token" in created_data
+    new_user = created_data["user"]
+    assert new_user["full_name"] == "Major Tom (Test)"
+    assert new_user["role"] == "ASTRONAUT"
+
+    # 3. Switch user
+    switch_res = await async_client.post(
+        "/api/v1/auth/switch",
+        json={"user_id": new_user["id"]},
+    )
+    assert switch_res.status_code == 200
+    switch_data = switch_res.json()
+    assert switch_data["user"]["id"] == new_user["id"]
+    assert "access_token" in switch_data

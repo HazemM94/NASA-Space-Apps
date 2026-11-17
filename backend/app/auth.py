@@ -35,6 +35,11 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return False
 
 
+def hash_password(plain_password: str) -> str:
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(plain_password.encode("utf-8"), salt).decode("utf-8")
+
+
 def create_access_token(user_id: str, role: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {
